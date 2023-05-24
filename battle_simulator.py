@@ -2810,7 +2810,7 @@ def redraw_ui(party1, party2):
 def reroll_rune(rune_index):
     all_characters = party1 + party2
     for character in all_characters:
-        if character.name == character_selection_menu.selected_option:
+        if character.name == character_selection_menu.selected_option and character.isAlive():
             print(character.name)
             print(character.equip)
             character.equip[rune_index] = generate_runes_list(1)[0]
@@ -2826,7 +2826,7 @@ def reroll_rune(rune_index):
 def levelup_button_effect():
     all_characters = party1 + party2
     for character in all_characters:
-        if character.name == character_selection_menu.selected_option:
+        if character.name == character_selection_menu.selected_option and character.isAlive():
             character.level_up()
             text_box.append_html_text(f"Leveling up {character.name}, New level: {character.lvl}\n")
     redraw_ui(party1, party2)
@@ -2834,7 +2834,7 @@ def levelup_button_effect():
 def leveldown_button_effect():
     all_characters = party1 + party2
     for character in all_characters:
-        if character.name == character_selection_menu.selected_option:
+        if character.name == character_selection_menu.selected_option and character.isAlive():
             character.level_down()
             text_box.append_html_text(f"Leveling down {character.name}. New level: {character.lvl}\n")
     redraw_ui(party1, party2)
