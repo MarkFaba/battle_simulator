@@ -22,7 +22,7 @@ class Character:
         self.initialize_stats()
         self.calculate_equip_effect()
 
-    def initialize_stats(self, resethp=True):
+    def initialize_stats(self, resethp=True, resetally=True, resetenemy=True):
         self.maxhp = self.lvl * 100
         self.hp = self.lvl * 100 if resethp else self.hp
         self.atk = self.lvl * 5
@@ -45,11 +45,11 @@ class Character:
         self.final_damage_taken_multipler = 1.00
         self.buffs = []
         self.debuffs = []
-        self.ally = []
-        self.enemy = []
+        self.ally = [] if resetally else self.ally
+        self.enemy = [] if resetenemy else self.enemy
 
-    def reset_stats(self, resethp=True):
-        self.initialize_stats(resethp)
+    def reset_stats(self, resethp=True, resetally=True, resetenemy=True):
+        self.initialize_stats(resethp, resetally, resetenemy)
 
     def calculate_equip_effect(self, resethp=True):
         if self.equip != []:
@@ -76,6 +76,8 @@ class Character:
                 self.penetration += item.penetration
                 self.heal_efficiency += item.heal_efficiency
             if resethp and self.hp < self.maxhp:
+                self.hp = self.maxhp
+            if self.hp > self.maxhp:
                 self.hp = self.maxhp
         return self.equip
 
@@ -155,7 +157,7 @@ class Character:
     # Level up the character
     def level_up(self):
         self.lvl += 1
-        self.reset_stats()
+        self.reset_stats(resetally=False, resetenemy=False)
         self.calculate_equip_effect()
         self.exp = 0
         self.maxexp = self.calculate_maxexp()
@@ -164,7 +166,7 @@ class Character:
     # Level down the character
     def level_down(self):
         self.lvl -= 1
-        self.reset_stats()
+        self.reset_stats(resetally=False, resetenemy=False)
         self.calculate_equip_effect()
         self.exp = 0
         self.maxexp = self.calculate_maxexp()
@@ -1751,13 +1753,17 @@ class Pepper(Character):
         for ally in neighbors:
             # if ally have this attribute
             if hasattr(ally, "skill1_cooldown") and hasattr(ally, "skill2_cooldown"):
-                if ally.skill1_cooldown > 2:
+                if ally.skill1_cooldown > 0:
                     ally.skill1_cooldown -= 2
+                    if ally.skill1_cooldown < 0:
+                        ally.skill1_cooldown = 0
                     if running:
                         text_box.append_html_text(f"{ally.name} skill 1 cooldown reduced by 2.\n")
-                    print(f"{ally.name} skill 1 cooldown reduced by 2.")
-                if ally.skill2_cooldown > 2:
+                    print(f"{ally.name} skill 1 cooldown reduced by 2.")                
+                if ally.skill2_cooldown > 0:
                     ally.skill2_cooldown -= 2
+                    if ally.skill2_cooldown < 0:
+                        ally.skill2_cooldown = 0
                     if running:
                         text_box.append_html_text(f"{ally.name} skill 2 cooldown reduced by 2.\n")
                     print(f"{ally.name} skill 2 cooldown reduced by 2.")                 
@@ -2672,7 +2678,7 @@ def reroll_rune(rune_index):
             text_box.append_html_text(f"Rerolling rune {rune_index + 1} for {character.name}\n")
             text_box.append_html_text(character.equip[rune_index].print_stats())
             print(character.equip[rune_index])
-            character.reset_stats(resethp=False)
+            character.reset_stats(resethp=False, resetally=False, resetenemy=False)
             character.calculate_equip_effect(resethp=False)
             character.recalculateEffects()
     redraw_ui(party1, party2)
