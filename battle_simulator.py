@@ -9,47 +9,22 @@ import ctypes
 # Disable windows app scaling 
 ctypes.windll.user32.SetProcessDPIAware()
 
-# A character have the following attributes: name, maxhp, hp, atk, def,
-# spd, eva, acc, crit, critdmg, critdef, penetration, lvl, exp, maxmp, mp, hpregen,
-# mpregen, equip, buffs, debuffs, hpdrain, thorn 
 
 class Character:
-    def __init__(self, name, lvl, exp=0, equip=[], image=None):
+    def __init__(self, name, lvl, exp=0, equip=None, image=None):
+        if equip is None:
+            equip = []
         self.name = name
-        self.maxhp = lvl * 100
-        self.hp = lvl * 100
-        self.atk = lvl * 5
-        self.defense = lvl * 5
-        self.spd = lvl * 5
-        self.eva = 0.05
-        self.acc = 0.95
-        self.crit = 0.05
-        self.critdmg = 2.00
-        self.critdef = 0.00
-        self.penetration = 0.05
         self.lvl = lvl
         self.exp = exp
-        self.maxexp = self.calculate_maxexp()
-        self.maxmp = lvl * 50
-        self.mp = lvl * 50
-        self.hpregen = 0.00
-        self.mpregen = 0.00
-        self.equip = []
-        # The buffs and debuffs should be list of objects.
-        self.buffs = []
-        self.debuffs = []
-        self.hpdrain = 0.00
-        self.thorn = 0.00
-        self.heal_efficiency = 1.00
-        self.final_damage_taken_multipler = 1.00
-        self.ally = []
-        self.enemy = []
+        self.equip = equip
         self.image = image
+        self.initialize_stats()
         self.calculate_equip_effect()
 
-    def reset_stats(self):
+    def initialize_stats(self, resethp=True):
         self.maxhp = self.lvl * 100
-        self.hp = self.lvl * 100
+        self.hp = self.lvl * 100 if resethp else self.hp
         self.atk = self.lvl * 5
         self.defense = self.lvl * 5
         self.spd = self.lvl * 5
@@ -59,6 +34,7 @@ class Character:
         self.critdmg = 2.00
         self.critdef = 0.00
         self.penetration = 0.05
+        self.maxexp = self.calculate_maxexp()
         self.maxmp = self.lvl * 50
         self.mp = self.lvl * 50
         self.hpregen = 0.00
@@ -67,33 +43,40 @@ class Character:
         self.thorn = 0.00
         self.heal_efficiency = 1.00
         self.final_damage_taken_multipler = 1.00
+        self.buffs = []
+        self.debuffs = []
+        self.ally = []
+        self.enemy = []
 
-    # Calculate equip effects. Equip is a list of objects.
-    def calculate_equip_effect(self):
-        for item in self.equip:
-            self.maxhp += item.maxhp_flat
-            self.atk += item.atk_flat
-            self.defense += item.def_flat
-            self.spd += item.spd_flat
+    def reset_stats(self, resethp=True):
+        self.initialize_stats(resethp)
 
-            self.maxhp *= 1 + item.maxhp_percent
-            self.maxhp = int(self.maxhp)
-            self.atk *= 1 + item.atk_percent
-            self.atk = int(self.atk)
-            self.defense *= 1 + item.def_percent
-            self.defense = int(self.defense)
-            self.spd *= 1 + item.spd
-            self.spd = int(self.spd)
+    def calculate_equip_effect(self, resethp=True):
+        if self.equip != []:
+            for item in self.equip:
+                self.maxhp += item.maxhp_flat
+                self.atk += item.atk_flat
+                self.defense += item.def_flat
+                self.spd += item.spd_flat
 
-            self.eva += item.eva
-            self.acc += item.acc
-            self.crit += item.crit
-            self.critdmg += item.critdmg
-            self.critdef += item.critdef
-            self.penetration += item.penetration
-            self.heal_efficiency += item.heal_efficiency
-        if self.hp < self.maxhp:
-            self.hp = self.maxhp
+                self.maxhp *= 1 + item.maxhp_percent
+                self.maxhp = int(self.maxhp)
+                self.atk *= 1 + item.atk_percent
+                self.atk = int(self.atk)
+                self.defense *= 1 + item.def_percent
+                self.defense = int(self.defense)
+                self.spd *= 1 + item.spd
+                self.spd = int(self.spd)
+
+                self.eva += item.eva
+                self.acc += item.acc
+                self.crit += item.crit
+                self.critdmg += item.critdmg
+                self.critdef += item.critdef
+                self.penetration += item.penetration
+                self.heal_efficiency += item.heal_efficiency
+            if resethp and self.hp < self.maxhp:
+                self.hp = self.maxhp
         return self.equip
 
     # Normal attack logic
@@ -176,6 +159,7 @@ class Character:
         self.calculate_equip_effect()
         self.exp = 0
         self.maxexp = self.calculate_maxexp()
+        self.recalculateEffects()
 
     # Level down the character
     def level_down(self):
@@ -184,6 +168,7 @@ class Character:
         self.calculate_equip_effect()
         self.exp = 0
         self.maxexp = self.calculate_maxexp()
+        self.recalculateEffects()
 
     # Check if the character is alive
     def isAlive(self):
@@ -587,6 +572,15 @@ class Character:
         print(f"{effect.name} has been applied on {self.name}.")
         effect.applyEffectOnApply(self)
 
+    # Recalculate effects on the character
+    def recalculateEffects(self):
+        if self.buffs != []:
+            for effect in self.buffs:
+                effect.applyEffectOnApply(self)
+        if self.debuffs != []:
+            for effect in self.debuffs:
+                effect.applyEffectOnApply(self)
+
     # Remove buff or debuff effect from the character
     def removeEffect(self, effect):
         if effect in self.buffs:
@@ -965,7 +959,7 @@ class Iris(Character):
 
         self.skill1_description = "330% atk on all enemies."
         self.skill2_description = "350% atk on all enemies, inflict bleed for 3 turns. Bleed: 35% atk damage per turn."
-        self.skill3_description = "At start of battle, apply Cancelation Shield to ally with highest atk. Cancelation shield: cancel 1 attack if attack damage exceed 10% of max hp. When cancelation shield is active, gain immunity to CC."
+        self.skill3_description = "At start of battle, apply Cancellation Shield to ally with highest atk. Cancellation shield: cancel 1 attack if attack damage exceed 10% of max hp. When the shield is active, gain immunity to CC."
 
     def skill_tooltip(self):
         return f"Skill 1 : {self.skill1_description}\nCooldown : {self.skill1_cooldown} action(s)\n\nSkill 2 : {self.skill2_description}\nCooldown : {self.skill2_cooldown} action(s)\n\nSkill 3 : {self.skill3_description}\n"
@@ -1047,9 +1041,9 @@ class Iris(Character):
         self.skill2_cooldown = 5
 
     def skill3(self):
-        # At start of battle, apply cancelation shield to ally with highest atk.
-        # Cancelation shield: cancel 1 attack if attack damage exceed 10% of max hp.
-        # When cancelation shield is active, gain immunity to CC.
+        # At start of battle, apply cancellation shield to ally with highest atk.
+        # Cancellation shield: cancel 1 attack if attack damage exceed 10% of max hp.
+        # When the shield is active, gain immunity to CC.
         pass
 
     def update_cooldown(self):
@@ -1983,9 +1977,9 @@ class Cerberus(Character):
             print(f"{self.name} cannot act.")
 
 
-
+#-----------------------------------------
+#-----------------------------------------
 class Effect:
-    # Effect constructor
     def __init__(self, name, duration, is_buff, cc_immunity=False,**kwargs):
         self.name = name
         self.duration = duration
@@ -2144,8 +2138,8 @@ class EffectShield1(Effect):
         return damage
 
 #---------------------------------------------------------
-# Cancelation Shield effect (cancel 1 attack if attack damage exceed certain amount of max hp)
-class CancelationShield(Effect):
+# Cancellation Shield effect (cancel 1 attack if attack damage exceed certain amount of max hp)
+class CancellationShield(Effect):
     def __init__(self, name, duration, is_buff, threshold, cc_immunity):
         super().__init__(name, duration, is_buff, cc_immunity=False)
         self.is_buff = is_buff
@@ -2162,7 +2156,7 @@ class CancelationShield(Effect):
         else:
             return damage
 
-
+#--------------------------------------------------------- 
 #---------------------------------------------------------
 def is_someone_alive(party):
     for character in party:
@@ -2198,8 +2192,27 @@ def get_neighbors_of_character_in_party(party, char_name, include_self=True, req
     return []
 
 
+def start_of_battle_effects(party):
+    # If Iris in party, apply Cancellation shield to ally with highest atk.
+    # character.applyEffect(CancellationShield("Cancellation Shield", -1, True, 0.1, cc_immunity=True))
+    if any(isinstance(character, Iris) for character in party):
+        highest_atk = max([character.atk for character in party])
+        for character in party:
+            if character.atk == highest_atk:
+                character.applyEffect(CancellationShield("Cancellation Shield", -1, True, 0.1, cc_immunity=True))
+                
+
+# Reset characters.ally and characters.enemy
+def reset_ally_enemy_attr(party1, party2):
+    for character in party1:
+        character.ally = copy.copy(party1)
+        character.enemy = copy.copy(party2)
+    for character in party2:
+        character.ally = copy.copy(party2)
+        character.enemy = copy.copy(party1)
+
+
 def set_up_characters():
-    character_selection_menu.rebuild()
     party1 = []
     party2 = []
     character1 = Cerberus("Cerberus", 40)
@@ -2221,16 +2234,13 @@ def set_up_characters():
 
     for character in list_of_characters:
         level = 40
-        character.__init__(character.name, level, generate_runes_list(4))
-        character.equip = generate_runes_list(4)
-        character.calculate_equip_effect()
+        character.__init__(character.name, level, equip=generate_runes_list(4))
 
-    party1 = random.sample(list_of_characters, 5)
-    remaining = []
-    for character in list_of_characters:
-        if character not in party1:
-            remaining.append(character)
-    party2 = random.sample(remaining, 5)
+    random.shuffle(list_of_characters)
+
+    party1 = list_of_characters[:5]
+    party2 = list_of_characters[5:]
+
     start_of_battle_effects(party1)
     start_of_battle_effects(party2)
 
@@ -2241,13 +2251,7 @@ def set_up_characters():
 
     redraw_ui(party1, party2)
 
-    for characters in party1:
-        # party member will be removed by updateAllyEnemy() if no copy.copy() is used.
-        characters.ally = copy.copy(party1)
-        characters.enemy = copy.copy(party2)
-    for characters in party2:
-        characters.ally = copy.copy(party2)
-        characters.enemy = copy.copy(party1)
+    reset_ally_enemy_attr(party1, party2)
 
     return party1, party2
 
@@ -2300,16 +2304,9 @@ def next_turn(party1, party2):
     the_chosen_one = random.choices(alive_characters, weights=weight, k=1)[0]
     text_box.append_html_text(f"{the_chosen_one.name}'s turn.\n")
     the_chosen_one.action()
-    for i, character in enumerate(party1):
-        sprite_party1[i].current_health = character.hp
-        sprite_party1[i].health_capacity = character.maxhp
-        image_slots_party1[i].set_tooltip(character.tooltip_string())
-        label_party1[i].set_tooltip(character.skill_tooltip())
-    for i, character in enumerate(party2):
-        sprite_party2[i].current_health = character.hp
-        sprite_party2[i].health_capacity = character.maxhp
-        image_slots_party2[i].set_tooltip(character.tooltip_string())
-        label_party2[i].set_tooltip(character.skill_tooltip())
+
+    redraw_ui(party1, party2)
+
     if not is_someone_alive(party1) or not is_someone_alive(party2):
         return False
     return True
@@ -2350,16 +2347,7 @@ def all_turns(party1, party2):
         the_chosen_one.action()
         turn += 1
 
-    for i, character in enumerate(party1):
-        sprite_party1[i].current_health = character.hp
-        sprite_party1[i].health_capacity = character.maxhp
-        image_slots_party1[i].set_tooltip(character.tooltip_string())
-        label_party1[i].set_tooltip(character.skill_tooltip())
-    for i, character in enumerate(party2):
-        sprite_party2[i].current_health = character.hp
-        sprite_party2[i].health_capacity = character.maxhp
-        image_slots_party2[i].set_tooltip(character.tooltip_string())
-        label_party2[i].set_tooltip(character.skill_tooltip())
+        redraw_ui(party1, party2)
 
     if turn >= 300:
         text_box.append_html_text("Battle is taking too long.\n")
@@ -2371,138 +2359,14 @@ def all_turns(party1, party2):
         text_box.append_html_text("Party 2 is defeated.\n")
 
 
-def start_of_battle_effects(party):
-    # If Iris in party, apply Cancelation shield to ally with highest atk.
-    # character.applyEffect(CancelationShield("Cancelation Shield", -1, True, 0.1, cc_immunity=True))
-    if any(isinstance(character, Iris) for character in party):
-        highest_atk = max([character.atk for character in party])
-        for character in party:
-            if character.atk == highest_atk:
-                character.applyEffect(CancelationShield("Cancelation Shield", -1, True, 0.1, cc_immunity=True))
-                
-
-# Used with call by calulate_winrate_for_character()
-def simulate_battle_between_party(party1, party2):
-    turn = 1
-    if party1 == [] or party2 == []:
-        print("One of the party is empty.")
-        return None
-    # party member will be removed by updateAllyEnemy() if no copy.copy() is used.
-    for characters in party1:
-        characters.ally = copy.copy(party1)
-        characters.enemy = copy.copy(party2)
-    for characters in party2:
-        characters.ally = copy.copy(party2)
-        characters.enemy = copy.copy(party1)
-    start_of_battle_effects(party1)
-    start_of_battle_effects(party2)
-    while turn < 300 and is_someone_alive(party1) and is_someone_alive(party2):
-        print("=====================================")
-        # turn should be 1 at the start of the battle.
-        print(f"Turn {turn}")
-        for character in party1:
-            character.updateEffects()
-        for character in party2:
-            character.updateEffects()
-        if not is_someone_alive(party1) or not is_someone_alive(party2):
-            break
-        for character in party1:
-            character.statusEffects()
-            if character.isAlive():
-                character.regen()
-        for character in party2:
-            character.statusEffects()
-            if character.isAlive():
-                character.regen()
-        
-        for character in party1:
-            character.updateAllyEnemy()
-        for character in party2:
-            character.updateAllyEnemy()
-
-        mid_turn_effects(party1, party2)
-
-        if not is_someone_alive(party1) or not is_someone_alive(party2):
-            break
-        alive_characters = [x for x in party1 + party2 if x.isAlive()]
-        weight = [x.spd for x in alive_characters]
-        the_chosen_one = random.choices(alive_characters, weights=weight, k=1)[0]
-        print(f"{the_chosen_one.name}'s turn.")
-        the_chosen_one.action()
-        print("")
-        print("Party 1:")
-        for character in party1:
-            print(character)
-        print("")
-        print("Party 2:")
-        for character in party2:
-            print(character)
-        turn += 1
-    if turn > 300:
-        print("Battle is taking too long.")
-        return None
-    if is_someone_alive(party1) and not is_someone_alive(party2):
-        print("Party 1 win!")
-        return party1
-    elif is_someone_alive(party2) and not is_someone_alive(party1):
-        print("Party 2 win!")
-        return party2
-    else:
-        print("Draw!")
-        return None
-
-
-def calculate_winrate_for_character(sample): 
-    character1 = Cerberus("Cerberus", 40)
-    character2 = Pepper("Pepper", 40)
-    character3 = Clover("Clover", 40)
-    character4 = Ruby("Ruby", 40)
-    character5 = Olive("Olive", 40)
-    character6 = Luna("Luna", 40)
-    character7 = Freya("Freya", 40)
-    character8 = Lillia("Lillia", 40)
-    character9 = Poppy("Poppy", 40)
-    character10 = Iris("Iris", 40)
-
-    big_data = []
-    all_characters = [character1, character2, character3, character4, character5,
-                        character6, character7, character8, character9, character10, 
-                        ]
-    
-    list_of_characters = random.sample(all_characters, 10)
-
-    for i in range(sample):
-        for character in list_of_characters:
-            character.__init__(character.name, character.lvl, character.equip)
-            character.equip = generate_runes_list(4)
-            character.calculate_equip_effect()
-        party1 = random.sample(list_of_characters, 5)
-        remaining = []
-        for character in list_of_characters:
-            if character not in party1:
-                remaining.append(character)
-        party2 = random.sample(remaining, 5)
-
-        winner_party = simulate_battle_between_party(party1, party2)
-        if winner_party != None:
-            big_data.append(winner_party)
-    win_counts = {c.name: 0 for c in list_of_characters}
-    for party in big_data:
-        for character in party:
-            win_counts[character.name] += 1
-    print("=====================================")
-    print("Winrate:")
-    for character in list_of_characters:
-        winrate = win_counts[character.name] / sample * 100
-        print(f"{character.name} winrate: {winrate:.2f}%")
-
-
+# ---------------------------------------------------------
+# ---------------------------------------------------------
 pygame.init()
 clock = pygame.time.Clock()
 
 # Some colors
-AntiqueWhite = pygame.Color("#FAEBD7")
-Deep_Dark_Blue = pygame.Color("#000022")
+antique_white = pygame.Color("#FAEBD7")
+deep_dark_blue = pygame.Color("#000022")
 light_yellow = pygame.Color("#FFFFE0")
 
 # Create a display surface
@@ -2514,9 +2378,8 @@ ui_manager = pygame_gui.UIManager((1200, 900), "theme_light_yellow.json")
 # Game title
 pygame.display.set_caption("Battle Simulator")
 
-# Some Invisible Sprites
+# Some Invisible Sprites for health bar
 # =====================================
-
 class InvisibleSprite(pygame.sprite.Sprite):
     def __init__(self, color, width, height, health_capacity, current_health):
         super().__init__()
@@ -2529,16 +2392,16 @@ class InvisibleSprite(pygame.sprite.Sprite):
     def update(self):
         pass
 
-invisible_sprite1 = InvisibleSprite(Deep_Dark_Blue, 1200, 900, 1000, 100)
-invisible_sprite2 = InvisibleSprite(Deep_Dark_Blue, 1200, 900, 1000, 100)
-invisible_sprite3 = InvisibleSprite(Deep_Dark_Blue, 1200, 900, 1000, 100)
-invisible_sprite4 = InvisibleSprite(Deep_Dark_Blue, 1200, 900, 1000, 100)
-invisible_sprite5 = InvisibleSprite(Deep_Dark_Blue, 1200, 900, 1000, 100)
-invisible_sprite6 = InvisibleSprite(Deep_Dark_Blue, 1200, 900, 1000, 100)
-invisible_sprite7 = InvisibleSprite(Deep_Dark_Blue, 1200, 900, 1000, 100)
-invisible_sprite8 = InvisibleSprite(Deep_Dark_Blue, 1200, 900, 1000, 100)
-invisible_sprite9 = InvisibleSprite(Deep_Dark_Blue, 1200, 900, 1000, 100)
-invisible_sprite10 = InvisibleSprite(Deep_Dark_Blue, 1200, 900, 1000, 100)
+invisible_sprite1 = InvisibleSprite(deep_dark_blue, 1200, 900, 1000, 100)
+invisible_sprite2 = InvisibleSprite(deep_dark_blue, 1200, 900, 1000, 100)
+invisible_sprite3 = InvisibleSprite(deep_dark_blue, 1200, 900, 1000, 100)
+invisible_sprite4 = InvisibleSprite(deep_dark_blue, 1200, 900, 1000, 100)
+invisible_sprite5 = InvisibleSprite(deep_dark_blue, 1200, 900, 1000, 100)
+invisible_sprite6 = InvisibleSprite(deep_dark_blue, 1200, 900, 1000, 100)
+invisible_sprite7 = InvisibleSprite(deep_dark_blue, 1200, 900, 1000, 100)
+invisible_sprite8 = InvisibleSprite(deep_dark_blue, 1200, 900, 1000, 100)
+invisible_sprite9 = InvisibleSprite(deep_dark_blue, 1200, 900, 1000, 100)
+invisible_sprite10 = InvisibleSprite(deep_dark_blue, 1200, 900, 1000, 100)
 sprite_party1 = [invisible_sprite1, invisible_sprite2, invisible_sprite3, invisible_sprite4, invisible_sprite5]
 sprite_party2 = [invisible_sprite6, invisible_sprite7, invisible_sprite8, invisible_sprite9, invisible_sprite10]
 
@@ -2570,8 +2433,7 @@ all_healthbar = [health_bar1, health_bar2, health_bar3, health_bar4, health_bar5
 
 # Some Images
 # ==============================
-
-image_files = ["dog", "cat", "rat", "pig", "chicken", "cow", "horse", "sheep", "goat", "duck", "do_not_use"
+image_files = ["dog", "cat", "rat", "pig", "chicken", "cow", "horse", "sheep", "goat", "duck", "error"
                ,"lillia", "amethyst", "poppy", "iris", "freya", "luna", "clover", "ruby", "olive", "pepper"
                , "cerberus"]
 images = {name: pygame.image.load(f"image/{name}.jpg") for name in image_files}
@@ -2611,14 +2473,8 @@ image_slot10 = pygame_gui.elements.UIImage(pygame.Rect((900, 650), (156, 156)),
 image_slots_party1 = [image_slot1, image_slot2, image_slot3, image_slot4, image_slot5]
 image_slots_party2 = [image_slot6, image_slot7, image_slot8, image_slot9, image_slot10]
 
-for image_slot in image_slots_party1:
-    image_slot.set_image(images["do_not_use"])
-for image_slot in image_slots_party2:
-    image_slot.set_image(images["do_not_use"])
-
 # Rune Slots
 # ==============================
-
 rune_slota1 = pygame_gui.elements.UIImage(pygame.Rect((75, 50), (20, 20)),pygame.Surface((20, 20)),ui_manager)
 # rune_slota2 = pygame_gui.elements.UIImage(pygame.Rect((75, 75), (20, 20)),pygame.Surface((20, 20)),ui_manager)
 # rune_slota3 = pygame_gui.elements.UIImage(pygame.Rect((75, 100), (20, 20)),pygame.Surface((20, 20)),ui_manager)
@@ -2676,9 +2532,8 @@ for slot in rune_slot_party1:
 for slot in rune_slot_party2:
     slot.set_image(images["amethyst"])                                   
 
-# Character Names and Levels
+# Character Names and Level Labels
 # ==========================
-
 label1 = pygame_gui.elements.UILabel(pygame.Rect((75, 10), (200, 50)),
                                     "label",
                                     ui_manager)
@@ -2724,7 +2579,6 @@ label_party2 = [label6, label7, label8, label9, label10]
 
 # Some buttons
 # ==========================
-
 button1 = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((100, 300), (156, 50)),
                                       text='Initiate',
                                       manager=ui_manager,
@@ -2818,8 +2672,9 @@ def reroll_rune(rune_index):
             text_box.append_html_text(f"Rerolling rune {rune_index + 1} for {character.name}\n")
             text_box.append_html_text(character.equip[rune_index].print_stats())
             print(character.equip[rune_index])
-            character.reset_stats()
-            character.calculate_equip_effect()
+            character.reset_stats(resethp=False)
+            character.calculate_equip_effect(resethp=False)
+            character.recalculateEffects()
     redraw_ui(party1, party2)
 
 
@@ -2841,21 +2696,18 @@ def leveldown_button_effect():
 
 # Text entry box
 # ==========================
-
 text_box = pygame_gui.elements.UITextEntryBox(pygame.Rect((300, 300), (556, 290)),
                                                         "", ui_manager)
 text_box.set_text("Hover over character name to show skill information\n")
 text_box.append_html_text("Hover over character image to show attributes\n")
 text_box.append_html_text("Hover over rune icon to show rune information\n\n")
-text_box.append_html_text("Click on Initiate to continue...\n")
 
 # Event loop
 # ==========================
-
 running = True
-
 party1 = []
 party2 = []
+party1, party2 = set_up_characters()
 turn = 1
 while running:
     for event in pygame.event.get():
@@ -2901,5 +2753,3 @@ while running:
     clock.tick(60)
 
 pygame.quit()
-
-# calculate_winrate_for_character(1000)
