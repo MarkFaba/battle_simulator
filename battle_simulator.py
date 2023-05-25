@@ -142,8 +142,8 @@ class Character:
     def get_rune_stats(self):
         str = ""
         for rune in self.equip:
-            str += rune.print_stats()
-            str += "="*15 + "\n"
+            str += rune.print_stats_html()
+            str += "\n"
         return str
 
     # Calculate the max exp for the character
@@ -2648,21 +2648,21 @@ leveldown_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((900, 
 def redraw_ui(party1, party2):
     for i, character in enumerate(party1):
         image_slots_party1[i].set_image(images[character.name.lower()])
-        image_slots_party1[i].set_tooltip(character.tooltip_string())
-        rune_slot_party1[i].set_tooltip(character.get_rune_stats())
+        image_slots_party1[i].set_tooltip(character.tooltip_string(), delay=0.1, wrap_width=250)
+        rune_slot_party1[i].set_tooltip(character.get_rune_stats(), delay=0.1, wrap_width=250)
         sprite_party1[i].current_health = character.hp
         sprite_party1[i].health_capacity = character.maxhp
         label_party1[i].set_text(f"lv {character.lvl} {character.name}")
-        label_party1[i].set_tooltip(character.skill_tooltip())
+        label_party1[i].set_tooltip(character.skill_tooltip(), delay=0.1, wrap_width=250)
 
     for i, character in enumerate(party2):
         image_slots_party2[i].set_image(images[character.name.lower()])
-        image_slots_party2[i].set_tooltip(character.tooltip_string())
-        rune_slot_party2[i].set_tooltip(character.get_rune_stats())
+        image_slots_party2[i].set_tooltip(character.tooltip_string(), delay=0.1, wrap_width=250)
+        rune_slot_party2[i].set_tooltip(character.get_rune_stats(), delay=0.1, wrap_width=250)
         sprite_party2[i].current_health = character.hp
         sprite_party2[i].health_capacity = character.maxhp
         label_party2[i].set_text(f"lv {character.lvl} {character.name}")
-        label_party2[i].set_tooltip(character.skill_tooltip())
+        label_party2[i].set_tooltip(character.skill_tooltip(), delay=0.1, wrap_width=250)
 
     for healthbar in all_healthbar:
         healthbar.rebuild()

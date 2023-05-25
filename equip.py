@@ -8,19 +8,6 @@ def normal_distribution(min_value, max_value, mean, std):
         if value >= min_value and value <= max_value:
             return value
 
-# print([normal_distribution(1, 3000, 1000, 500)*0.0001 for i in range(100)])
-
-
-# Equip class. Equip is a object has the following attributes:
-# float attributes:
-# maxhp_percent, atk_percent,
-# def_percent, spd, eva, acc, crit, critdmg, critdef, penetration,
-# hpregen, heal_efficiency, final_damage_taken_multipler.
-# integer attributes:
-# maxhp_flat, atk_flat, def_flat, spd_flat
-# string attributes:
-# name, type, set, rarity, slot
-
 class Equip:
     def __init__(self, name, type, rarity, set="None" ,slot="All"):
         self.name = name
@@ -64,23 +51,23 @@ class Equip:
         elif self.rarity == "Uncommon":
             for attr in dir(self):
                 if not callable(getattr(self, attr)) and not attr.startswith("__") and not isinstance(getattr(self, attr), str):
-                    setattr(self, attr, getattr(self, attr) * 1.1)
+                    setattr(self, attr, getattr(self, attr) * 1.10)
         elif self.rarity == "Rare":
             for attr in dir(self):
                 if not callable(getattr(self, attr)) and not attr.startswith("__") and not isinstance(getattr(self, attr), str):
-                    setattr(self, attr, getattr(self, attr) * 1.2)
+                    setattr(self, attr, getattr(self, attr) * 1.25)
         elif self.rarity == "Epic":
             for attr in dir(self):
                 if not callable(getattr(self, attr)) and not attr.startswith("__") and not isinstance(getattr(self, attr), str):
-                    setattr(self, attr, getattr(self, attr) * 1.3)
+                    setattr(self, attr, getattr(self, attr) * 1.45)
         elif self.rarity == "Unique":
             for attr in dir(self):
                 if not callable(getattr(self, attr)) and not attr.startswith("__") and not isinstance(getattr(self, attr), str):
-                    setattr(self, attr, getattr(self, attr) * 1.4)
+                    setattr(self, attr, getattr(self, attr) * 1.70)
         elif self.rarity == "Legendary":
             for attr in dir(self):
                 if not callable(getattr(self, attr)) and not attr.startswith("__") and not isinstance(getattr(self, attr), str):
-                    setattr(self, attr, getattr(self, attr) * 1.5)
+                    setattr(self, attr, getattr(self, attr) * 2.00)
         else:
             raise Exception("Invalid rarity")
         # Convert flat attributes to integer
@@ -182,24 +169,63 @@ class Equip:
         
         return stats
 
+    # Print the rune's stats in HTML format. Only print non-zero stats, including type, rarity.
+    def print_stats_html(self):
+        color = ""
+        if self.rarity == "Common":
+            color = "#2c2c2c"
+        elif self.rarity == "Uncommon":
+            color = "#B87333"
+        elif self.rarity == "Rare":
+            color = "#FF0000"
+        elif self.rarity == "Epic":
+            color = "#659a00"
+        elif self.rarity == "Unique":
+            color = "#9966CC"
+        elif self.rarity == "Legendary":
+            color = "#21d6ff"
+            
+        stats = "<font color=" + color + ">" + self.rarity + " " + self.type + "\n"
+        if self.maxhp_flat != 0:
+            stats += "Max HP: " + str(self.maxhp_flat) + "\n"
+        if self.atk_flat != 0:
+            stats += "Attack: " + str(self.atk_flat) + "\n"
+        if self.def_flat != 0:
+            stats += "Defense: " + str(self.def_flat) + "\n"
+        if self.spd_flat != 0:
+            stats += "Speed: " + str(self.spd_flat) + "\n"
+        if self.maxhp_percent != 0:
+            stats += "Max HP: " + "{:.2f}%".format(self.maxhp_percent*100) + "\n"
+        if self.atk_percent != 0:
+            stats += "Attack: " + "{:.2f}%".format(self.atk_percent*100) + "\n"
+        if self.def_percent != 0:
+            stats += "Defense: " + "{:.2f}%".format(self.def_percent*100) + "\n"
+        if self.spd != 0:
+            stats += "Speed: " + "{:.2f}%".format(self.spd*100) + "\n"
+        if self.eva != 0:
+            stats += "Evasion: " + "{:.2f}%".format(self.eva*100) + "\n"
+        if self.acc != 0:
+            stats += "Accuracy: " + "{:.2f}%".format(self.acc*100) + "\n"
+        if self.crit != 0:
+            stats += "Critical Chance: " + "{:.2f}%".format(self.crit*100) + "\n"
+        if self.critdmg != 0:
+            stats += "Critical Damage: " + "{:.2f}%".format(self.critdmg*100) + "\n"
+        if self.critdef != 0:
+            stats += "Critical Defense: " + "{:.2f}%".format(self.critdef*100) + "\n"
+        if self.penetration != 0:
+            stats += "Penetration: " + "{:.2f}%".format(self.penetration*100) + "\n"
+        if self.heal_efficiency != 0:
+            stats += "Heal Efficiency: " + "{:.2f}%".format(self.heal_efficiency*100) + "</font>\n"
 
-
-
-# Generate random runes
-def generate_runes(num):
-    for i in range(num):
-        rune = Equip("Rune_" + str(i), random.choice(["Rune of Health", "Rune of Attack", "Rune of Defense", "Rune of Speed"]), random.choice(["Common", "Uncommon", "Rare", "Epic", "Legendary"]))
-        rune.generate()
-        print(str(rune.print_stats()))
+        return stats
 
 
 # Generate and add to a list
 def generate_runes_list(num):
     runes = []
     for i in range(num):
-        rune = Equip("Rune_" + str(i+1), random.choice(["Rune of Health", "Rune of Attack", "Rune of Defense", "Rune of Speed"]), random.choice(["Common", "Uncommon", "Rare", "Epic", "Legendary"]))
+        rune = Equip("Rune_" + str(i+1), random.choice(["Rune of Health", "Rune of Attack", "Rune of Defense", "Rune of Speed"]), random.choice(["Common", "Uncommon", "Rare", "Epic", "Unique", "Legendary"]))
         rune.generate()
         runes.append(rune)
     return runes
 
-generate_runes(1)
