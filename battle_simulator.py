@@ -47,6 +47,8 @@ class Character:
         self.debuffs = []
         self.ally = [] if resetally else self.ally
         self.enemy = [] if resetenemy else self.enemy
+        self.party = [] if resetally and resetenemy else self.party
+        self.enemyparty = [] if resetally and resetenemy else self.enemyparty
 
     def reset_stats(self, resethp=True, resetally=True, resetenemy=True):
         self.initialize_stats(resethp, resetally, resetenemy)
@@ -156,6 +158,8 @@ class Character:
 
     # Level up the character
     def level_up(self):
+        if self.lvl >= 1000:
+            return
         self.lvl += 1
         self.reset_stats(resetally=False, resetenemy=False)
         self.calculate_equip_effect()
@@ -165,6 +169,8 @@ class Character:
 
     # Level down the character
     def level_down(self):
+        if self.lvl <= 1:
+            return
         self.lvl -= 1
         self.reset_stats(resetally=False, resetenemy=False)
         self.calculate_equip_effect()
@@ -230,11 +236,11 @@ class Character:
     def hasEnemy(self, enemy_name):
         return enemy_name in [enemy.name for enemy in self.enemy]
 
-    def get_neighbor_allies_including_self(self):
-        return get_neighbors(self.ally, self)
+    def get_neighbor_allies_including_self(self, get_from_self_ally=True):
+        return get_neighbors(self.ally, self) if get_from_self_ally else get_neighbors(self.party, self)
 
-    def get_neighbor_allies_not_including_self(self):
-        return get_neighbors(self.ally, self, include_self=False)
+    def get_neighbor_allies_not_including_self(self, get_from_self_ally=True):
+        return get_neighbors(self.ally, self, include_self=False) if get_from_self_ally else get_neighbors(self.party, self, include_self=False)
 
     # Check if the character is the only one alive
     def isOnlyOneAlive(self):
@@ -337,7 +343,7 @@ class Character:
     # Heal the character hp, flat, independent of updateHp
     def healHp(self, value, healer):
         if self.isDead():
-            raise Exception
+            raise Exception("Cannot heal a dead character.")
         if value < 0:
             value = 0
         healing = value * self.heal_efficiency
@@ -351,6 +357,19 @@ class Character:
             text_box.append_html_text(f"{self.name} is healed for {healing} HP.\n")
         print(f"{self.name} is healed for {healing} HP.")
         return healing, healer, overhealing
+
+    # Revive
+    def revive(self, hp_to_revive, hp_percentage_to_revive=0):
+        if self.isDead():
+            self.hp = hp_to_revive
+            self.hp += self.maxhp * hp_percentage_to_revive
+            self.hp = int(self.hp)
+            if running:
+                text_box.append_html_text(f"{self.name} is revived for {self.hp} hp.\n")
+            print(f"{self.name} is revived for {self.hp} hp.")
+        else:
+            raise Exception(f"{self.name} is not dead. Cannot revive.")
+
 
     # Update the character's maxhp, flat or multiplicative
     def updateMaxhp(self, value, is_flat):
@@ -685,7 +704,7 @@ class Lillia(Character):
         self.skill2_cooldown = skill2_cooldown
         self.skill1_description = "12 hits on random enemies, 170% atk each hit. After 1 critical hit, all hits following will be critical and attack all enemies."
         self.skill2_description = "For 8 turns, cast Infinite Oasis on self gain immunity to CC and reduce damage taken by 35%."
-        self.skill3_description = "Heal 10% of max hp on action when Infinite Oasis is active."
+        self.skill3_description = "Heal 8% of max hp on action when Infinite Oasis is active."
 
     def skill_tooltip(self):
         return f"Skill 1 : {self.skill1_description}\nCooldown : {self.skill1_cooldown} action(s)\n\nSkill 2 : {self.skill2_description}\nCooldown : {self.skill2_cooldown} action(s)\n\nSkill 3 : {self.skill3_description}\n"
@@ -775,7 +794,7 @@ class Lillia(Character):
     def skill3(self):
         # Heal 10% of max hp on action turn when "Infinite Oasis" is active.
         if self.hasEffect("Infinite Oasis"):
-            self.healHp(self.maxhp * 0.1, self)
+            self.healHp(self.maxhp * 0.08, self)
 
 
     def update_cooldown(self):
@@ -1692,11 +1711,11 @@ class Olive(Character):
 
 
 # Target winrate : less than 60%
-class Pepper(Character):
+class Fenrir(Character):
     def __init__(self, name, lvl, exp=0, equip=None, image=None, 
                  skill1_cooldown=0, skill2_cooldown=0):
         super().__init__(name, lvl, exp, equip, image)
-        self.name = "Pepper"
+        self.name = "Fenrir"
         self.skill1_cooldown = skill1_cooldown
         self.skill2_cooldown = skill2_cooldown
 
@@ -1983,6 +2002,121 @@ class Cerberus(Character):
             print(f"{self.name} cannot act.")
 
 
+# Ponpon attacker and healer
+# Target winrate : near 50%
+class Pepper(Character):
+    def __init__(self, name, lvl, exp=0, equip=None, image=None, 
+                 skill1_cooldown=0, skill2_cooldown=0):
+        super().__init__(name, lvl, exp, equip, image)
+        self.name = "Pepper"
+        self.skill1_cooldown = skill1_cooldown
+        self.skill2_cooldown = skill2_cooldown
+
+        self.skill1_description = "770% atk on 1 enemy, 70% success rate, 20% chance to hit an ally with 300% atk, 10% chance to hit self with 300% atk."
+        self.skill2_description = "Heal an ally with lowest hp percentage with 770% atk, 70% success rate, 20% chance to have no effect, 10% chance to damage the ally with 200% atk."
+        self.skill3_description = "On a successful healing with skill 2, 70% chance to accidently revive a neighbor ally with 70% hp."
+
+    def skill_tooltip(self):
+        return f"Skill 1 : {self.skill1_description}\nCooldown : {self.skill1_cooldown} action(s)\n\nSkill 2 : {self.skill2_description}\nCooldown : {self.skill2_cooldown} action(s)\n\nSkill 3 : {self.skill3_description}\n"
+
+    def skill1(self):
+        if running:
+            text_box.append_html_text(f"{self.name} cast skill 1.\n")
+        print(f"{self.name} cast skill 1.")
+        if self.skill1_cooldown > 0:
+            raise Exception
+        pondice = random.randint(1, 100)
+        target_is_enemy = True
+        self.updateAllyEnemy()
+
+        if pondice <= 70:
+            available_targets = self.checkTargets()
+        elif pondice <= 90 and pondice > 70:
+            available_targets = self.ally
+            target_is_enemy = False
+        else:
+            available_targets = [self]
+            target_is_enemy = False
+
+        target = random.choice(available_targets)
+        if running:
+            text_box.append_html_text(f"{self.name} is targeting {target.name}.\n")
+        print(f"{self.name} is targeting {target.name}.")
+        damage = self.atk * 7.7 - target.defense * (1-self.penetration) if target_is_enemy else self.atk * 3.0 - target.defense * (1-self.penetration)
+        final_accuracy = self.acc - target.eva
+        dice = random.randint(1, 100)
+        miss = False if dice <= final_accuracy * 100 else True
+        if not miss:
+            dice = random.randint(1, 100)
+            critical = True if dice <= self.crit * 100 else False
+            if critical:
+                final_damage = damage * (self.critdmg - target.critdef)
+                if running:
+                    text_box.append_html_text("Critical!\n")
+                print("Critical!")
+            else:
+                final_damage = damage
+            final_damage *= random.uniform(0.8, 1.2)
+            if final_damage < 0:
+                final_damage = 0
+            target.takeDamage(final_damage, self)
+        else:
+            if running:
+                text_box.append_html_text(f"Missed! {self.name} attacked {target.name} but missed.\n")
+            print(f"Missed! {self.name} attacked {target.name} but missed.")
+            
+        self.skill1_cooldown = 5
+
+    def skill2(self):
+        if self.skill2_cooldown > 0:
+            raise Exception
+        if running:
+            text_box.append_html_text(f"{self.name} cast skill 2.\n")
+        print(f"{self.name} cast skill 2.")
+        available_targets = self.ally
+        target = min(available_targets, key=lambda x: x.hp/x.maxhp)
+        pondice = random.randint(1, 100)
+        if pondice <= 70:
+            target.healHp(self.atk * 7.7, self)
+            revivedice = random.randint(1, 100)
+            if revivedice <= 70:
+                neighbors = self.get_neighbor_allies_not_including_self(False) 
+                dead_neighbors = [x for x in neighbors if x.isDead()]
+                if dead_neighbors != []:
+                    revive_target = random.choice(dead_neighbors)
+                    revive_target.revive(1, 0.7)
+        elif pondice <= 90 and pondice > 70:
+            pass
+        else:
+            target.takeDamage(self.atk * 2.0, self)
+
+        self.skill2_cooldown = 5
+        
+
+    def skill3(self):
+        pass
+
+    def update_cooldown(self):
+        if self.skill1_cooldown > 0:
+            self.skill1_cooldown -= 1
+        if self.skill2_cooldown > 0:
+            self.skill2_cooldown -= 1
+
+    def action(self):
+        if self.canAction():
+            self.update_cooldown()
+            if self.skill1_cooldown == 0 and not self.isSilenced():
+                self.skill1()
+            elif self.skill2_cooldown == 0 and not self.isSilenced():
+                self.skill2()
+            else:
+                self.normal_attack()
+        else:
+            if running:
+                text_box.append_html_text(f"{self.name} cannot act.\n")
+            print(f"{self.name} cannot act.")
+
+
 #-----------------------------------------
 #-----------------------------------------
 class Effect:
@@ -2213,34 +2347,85 @@ def reset_ally_enemy_attr(party1, party2):
     for character in party1:
         character.ally = copy.copy(party1)
         character.enemy = copy.copy(party2)
+        character.party = party1
+        character.enemyparty = party2
     for character in party2:
         character.ally = copy.copy(party2)
         character.enemy = copy.copy(party1)
+        character.party = party2
+        character.enemyparty = party1
+
+
+# Replace character in party with new character
+def replace_character_with_reserve_member(character_name, new_character_name):
+    global party1
+    global party2
+    global all_characters
+    for character in party1:
+        if character.name == character_name:
+            for new_character in all_characters:
+                if new_character.name == new_character_name:
+                    character.__init__(character.name, character.lvl, equip=generate_runes_list(4))
+                    party1[party1.index(character)] = new_character
+                    new_character.__init__(character.name, character.lvl, equip=generate_runes_list(4))
+
+    for character in party2:
+        if character.name == character_name:
+            for new_character in all_characters:
+                if new_character.name == new_character_name:
+                    character.__init__(character.name, character.lvl, equip=generate_runes_list(4))
+                    party2[party2.index(character)] = new_character
+                    new_character.__init__(character.name, character.lvl, equip=generate_runes_list(4))
+
+    character_selection_menu.options_list = []
+    character_selection_menu_list = [character.name for character in party1] + [character.name for character in party2]
+    character_selection_menu.add_options(character_selection_menu_list)
+    character_selection_menu.selected_option = character_selection_menu_list[0]
+
+    remaining_characters = [character for character in all_characters if character not in party1 and character not in party2]
+
+    reserve_character_selection_menu.options_list = []
+    reserve_character_selection_menu_list = [character.name for character in remaining_characters]
+    reserve_character_selection_menu.add_options(reserve_character_selection_menu_list)
+    reserve_character_selection_menu.selected_option = reserve_character_selection_menu_list[0]
+
+    redraw_ui(party1, party2)
+
+    reset_ally_enemy_attr(party1, party2)
+
+    text_box.append_html_text(f"{character_name} has been replaced with {new_character_name}.\n")
+
+
+#--------------------------------------------------------- 
+#---------------------------------------------------------
+average_party_level = 40
+character1 = Cerberus("Cerberus", average_party_level)
+character2 = Fenrir("Fenrir", average_party_level)
+character3 = Clover("Clover", average_party_level)
+character4 = Ruby("Ruby", average_party_level)
+character5 = Olive("Olive", average_party_level)
+character6 = Luna("Luna", average_party_level)
+character7 = Freya("Freya", average_party_level)
+character8 = Poppy("Poppy", average_party_level)
+character9 = Lillia("Lillia", average_party_level)
+character10 = Iris("Iris", average_party_level)
+character11 = Pepper("Pepper", average_party_level)
+# character12 = Aria("Aria", average_party_level)
+
+all_characters = [character1, character2, character3, character4, character5,
+                    character6, character7, character8, character9, character10,
+                        character11]
 
 
 def set_up_characters():
     party1 = []
     party2 = []
-    character1 = Cerberus("Cerberus", 40)
-    character2 = Pepper("Pepper", 40)
-    character3 = Clover("Clover", 40)
-    character4 = Ruby("Ruby", 40)
-    character5 = Olive("Olive", 40)
-    character6 = Luna("Luna", 40)
-    character7 = Freya("Freya", 40)
-    character8 = Poppy("Poppy", 40)
-    character9 = Lillia("Lillia", 40)
-    character10 = Iris("Iris", 40)
-
-    all_characters = [character1, character2, character3, character4, character5,
-                        character6, character7, character8, character9, character10,
-                          ]
-    
     list_of_characters = random.sample(all_characters, 10)
 
+    remaining_characters = [character for character in all_characters if character not in list_of_characters]
+
     for character in list_of_characters:
-        level = 40
-        character.__init__(character.name, level, equip=generate_runes_list(4))
+        character.__init__(character.name, character.lvl, equip=generate_runes_list(4))
 
     random.shuffle(list_of_characters)
 
@@ -2255,6 +2440,11 @@ def set_up_characters():
     character_selection_menu.add_options(character_selection_menu_list)
     character_selection_menu.selected_option = character_selection_menu_list[0]
 
+    reserve_character_selection_menu.options_list = []
+    reserve_character_selection_menu_list = [character.name for character in remaining_characters]
+    reserve_character_selection_menu.add_options(reserve_character_selection_menu_list)
+    reserve_character_selection_menu.selected_option = reserve_character_selection_menu_list[0]
+
     redraw_ui(party1, party2)
 
     reset_ally_enemy_attr(party1, party2)
@@ -2264,11 +2454,11 @@ def set_up_characters():
 
 def mid_turn_effects(party1, party2):
     for party in [party1, party2]:
-        characters_to_apply_effects = get_neighbors_of_character_in_party(party, "Pepper", include_self=False, require_character_for_search_to_be_alive=True)
+        characters_to_apply_effects = get_neighbors_of_character_in_party(party, "Fenrir", include_self=False, require_character_for_search_to_be_alive=True)
         if characters_to_apply_effects != []:
-            # get atk atr of pepper
+            # get atk atr of Fenrir
             for character in party:
-                if character.name == "Pepper":
+                if character.name == "Fenrir":
                     atk = character.atk
             for character in characters_to_apply_effects:
                 character.applyEffect(EffectShield1("Protection", 1, True, 0.4, atk, False))
@@ -2296,6 +2486,7 @@ def next_turn(party1, party2):
         if character.isAlive():
             character.regen()
 
+    reset_ally_enemy_attr(party1, party2)
     for character in party1:
         character.updateAllyEnemy()
     for character in party2:
@@ -2339,6 +2530,7 @@ def all_turns(party1, party2):
             if character.isAlive():
                 character.regen()
 
+        reset_ally_enemy_attr(party1, party2)
         for character in party1:
             character.updateAllyEnemy()
         for character in party2:
@@ -2441,7 +2633,7 @@ all_healthbar = [health_bar1, health_bar2, health_bar3, health_bar4, health_bar5
 # ==============================
 image_files = ["dog", "cat", "rat", "pig", "chicken", "cow", "horse", "sheep", "goat", "duck", "error"
                ,"lillia", "amethyst", "poppy", "iris", "freya", "luna", "clover", "ruby", "olive", "pepper"
-               , "cerberus"]
+               , "cerberus", "fenrir"]
 images = {name: pygame.image.load(f"image/{name}.jpg") for name in image_files}
 
 
@@ -2615,25 +2807,25 @@ character_selection_menu = pygame_gui.elements.UIDropDownMenu(["Option 1", "Opti
                                                         pygame.Rect((900, 300), (156, 35)),
                                                         ui_manager)
 
-reroll_rune_button1 = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((900, 340), (156, 35)),
-                                      text='Reroll Rune 1',
-                                      manager=ui_manager,
-                                      tool_tip_text = "Reset stats and reroll rune 1")
+rune_selection_menu = pygame_gui.elements.UIDropDownMenu(["Rune 1", "Rune 2", "Rune 3", "Rune 4"],
+                                                        "Rune 1",
+                                                        pygame.Rect((900, 340), (90, 35)),
+                                                        ui_manager)
 
-reroll_rune_button2 = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((900, 380), (156, 35)),
-                                      text='Reroll Rune 2',
+reroll_rune_button2 = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((990, 340), (66, 35)),
+                                      text='Roll',
                                       manager=ui_manager,
-                                      tool_tip_text = "Reset stats and reroll rune 2")
+                                      tool_tip_text = "Reroll rune")
 
-reroll_rune_button3 = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((900, 420), (156, 35)),
-                                      text='Reroll Rune 3',
-                                      manager=ui_manager,
-                                      tool_tip_text = "Reset stats and reroll rune 3")
+reserve_character_selection_menu = pygame_gui.elements.UIDropDownMenu(["Option1"],
+                                                        "Option1",
+                                                        pygame.Rect((900, 380), (156, 35)),
+                                                        ui_manager)
 
-reroll_rune_button4 = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((900, 460), (156, 35)),
-                                      text='Reroll Rune 4',
+character_replace_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((900, 420), (156, 35)),
+                                      text='Replace',
                                       manager=ui_manager,
-                                      tool_tip_text = "Reset stats and reroll rune 4")
+                                      tool_tip_text = "Replace character with selected character, reset stats and reroll rune")
 
 levelup_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((900, 515), (156, 35)),
                                       text='Level Up',
@@ -2704,9 +2896,9 @@ def leveldown_button_effect():
 # ==========================
 text_box = pygame_gui.elements.UITextEntryBox(pygame.Rect((300, 300), (556, 290)),
                                                         "", ui_manager)
-text_box.set_text("Hover over character name to show skill information\n")
-text_box.append_html_text("Hover over character image to show attributes\n")
-text_box.append_html_text("Hover over rune icon to show rune information\n\n")
+text_box.set_text("Hover over character name to show skill information.\n")
+text_box.append_html_text("Hover over character image to show attributes.\n")
+text_box.append_html_text("Hover over rune icon to show rune information.\n\n")
 
 # Event loop
 # ==========================
@@ -2734,14 +2926,17 @@ while running:
                 text_box.set_text("Welcome to the battle simulator!\n")
             if event.ui_element == button5:
                 running = False
-            if event.ui_element == reroll_rune_button1:
-                reroll_rune(0)
             if event.ui_element == reroll_rune_button2:
-                reroll_rune(1)
-            if event.ui_element == reroll_rune_button3:
-                reroll_rune(2)
-            if event.ui_element == reroll_rune_button4:
-                reroll_rune(3)
+                if rune_selection_menu.selected_option == "Rune 1":
+                    reroll_rune(0)
+                elif rune_selection_menu.selected_option == "Rune 2":
+                    reroll_rune(1)
+                elif rune_selection_menu.selected_option == "Rune 3":
+                    reroll_rune(2)
+                elif rune_selection_menu.selected_option == "Rune 4":
+                    reroll_rune(3)
+            if event.ui_element == character_replace_button:
+                replace_character_with_reserve_member(character_selection_menu.selected_option, reserve_character_selection_menu.selected_option)
             if event.ui_element == levelup_button:
                 levelup_button_effect()
             if event.ui_element == leveldown_button:

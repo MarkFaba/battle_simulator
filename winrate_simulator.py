@@ -27,7 +27,8 @@ def simulate_battle_between_party(party1, party2):
             character.statusEffects()
             if character.isAlive():
                 character.regen()
-        
+
+        reset_ally_enemy_attr(party1, party2)
         for character in party1:
             character.updateAllyEnemy()
         for character in party2:
@@ -66,44 +67,35 @@ def simulate_battle_between_party(party1, party2):
 
 
 def calculate_winrate_for_character(sample): 
-    character1 = Cerberus("Cerberus", 40)
-    character2 = Pepper("Pepper", 40)
-    character3 = Clover("Clover", 40)
-    character4 = Ruby("Ruby", 40)
-    character5 = Olive("Olive", 40)
-    character6 = Luna("Luna", 40)
-    character7 = Freya("Freya", 40)
-    character8 = Lillia("Lillia", 40)
-    character9 = Poppy("Poppy", 40)
-    character10 = Iris("Iris", 40)
-
-    big_data = []
-    all_characters = [character1, character2, character3, character4, character5,
-                        character6, character7, character8, character9, character10, 
-                        ]
-    
-    list_of_characters = random.sample(all_characters, 10)
+    win_counts = {c.name: 0 for c in all_characters}
+    total_games = {c.name: 0 for c in all_characters}
 
     for i in range(sample):
-        for character in list_of_characters:
+        for character in all_characters:
             character.__init__(character.name, character.lvl, equip=generate_runes_list(4))
 
-        random.shuffle(list_of_characters)
-        party1 = list_of_characters[:5]
-        party2 = list_of_characters[5:]
+        random.shuffle(all_characters)
+        party1 = all_characters[:5]
+        party2 = all_characters[5:10]
+
+        for character in party1 + party2:
+            total_games[character.name] += 1
 
         winner_party = simulate_battle_between_party(party1, party2)
-        if winner_party != None:
-            big_data.append(winner_party)
-    win_counts = {c.name: 0 for c in list_of_characters}
-    for party in big_data:
-        for character in party:
-            win_counts[character.name] += 1
+        if winner_party is not None:
+            for character in winner_party:
+                win_counts[character.name] += 1
+
     print("=====================================")
     print("Winrate:")
-    for character in list_of_characters:
-        winrate = win_counts[character.name] / sample * 100
-        print(f"{character.name} winrate: {winrate:.2f}%")
+    for character in all_characters:
+        if total_games[character.name] > 0:
+            winrate = win_counts[character.name] / total_games[character.name] * 100
+            loss_count = total_games[character.name] - win_counts[character.name]
+            print(f"{character.name} wins: {win_counts[character.name]}, losses: {loss_count}, winrate: {winrate:.2f}%")
+        else:
+            print(f"{character.name} has not played any games.")
 
 
-calculate_winrate_for_character(1)
+if __name__ == "__main__":
+    calculate_winrate_for_character(1000)
